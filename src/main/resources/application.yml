@@ -1,0 +1,66 @@
+# Sem segredos aqui: credenciais e endereços vêm de variáveis de ambiente (ver .env.example).
+spring:
+  application:
+    name: billing-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:seniorinsight}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      # search_path da conexão: JPA, SQL nativo e Flyway enxergam só o schema do serviço.
+      schema: billing
+
+  flyway:
+    schemas: billing
+    default-schema: billing
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    listener:
+      simple:
+        # O consumidor confirma (ack) só depois de gravar o processamento; falha vai para a dead-letter.
+        acknowledge-mode: manual
+        default-requeue-rejected: false
+        prefetch: 10
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+
+server:
+  port: ${SERVER_PORT:8080}
+  # O serviço fica atrás do API Gateway: respeita X-Forwarded-* (host, proto, prefix) nas URLs geradas.
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+billing:
+  outbox:
+    relay:
+      intervalo: PT1S
+      tamanho-lote: 100
+      timeout-confirmacao: PT5S
+  mensageria:
+    # Eventos de si.events que chegam na fila billing.q.
+    routing-keys: user.created
