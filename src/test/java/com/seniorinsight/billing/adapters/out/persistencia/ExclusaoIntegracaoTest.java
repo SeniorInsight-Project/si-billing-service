@@ -64,7 +64,7 @@ class ExclusaoIntegracaoTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.assinaturaAtiva").value(true));
         mvc.perform(get("/v1/direito").with(jwt().jwt(token -> token.subject("outro-titular"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.assinaturaAtiva").value(false));
-        assertThatThrownBy(() -> repositorio.excluir(sub)).hasMessageContaining("aguardando cancelamento");
+        assertThatThrownBy(() -> repositorio.bloquearCobranca(sub)).hasMessageContaining("aguardando cancelamento");
         assertThat(repositorio.assinaturaAtiva(sub)).isTrue();
     }
     private void confirmar(UUID protocolo) {

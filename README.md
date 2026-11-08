@@ -4,8 +4,11 @@
 
 O gateway expõe `GET /api/v1/billing/direito`, que devolve `assinaturaAtiva`
 para o titular autenticado. A exclusão remove a assinatura e o trial locais e
-confirma por protocolo. Premium ativo ou referências de cobrança no Stripe
-mantêm o pedido pendente para cancelamento ou reconciliação, respectivamente.
+confirma por protocolo. Premium ativo mantém o pedido pendente até o
+encerramento. Para cobranças no Stripe, configure `STRIPE_ERASURE_ENABLED=true`
+e `STRIPE_SECRET_KEY` após validar a integração em homologação. A exclusão
+aguarda o encerramento de todas as assinaturas e a confirmação do provedor.
+Registros fiscais históricos seguem a política de retenção aplicável.
 
 Os eventos `lgpd.erasure.requested` e `lgpd.erasure.completed` seguem o
 contrato do si-contracts. Uma impressão do identificador impede que mensagens

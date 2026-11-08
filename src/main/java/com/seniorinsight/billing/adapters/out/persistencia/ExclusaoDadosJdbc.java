@@ -1,5 +1,6 @@
 package com.seniorinsight.billing.adapters.out.persistencia;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import com.seniorinsight.billing.application.porta.saida.ExclusaoDadosRepositorio;
@@ -32,20 +33,20 @@ class ExclusaoDadosJdbc implements ExclusaoDadosRepositorio {
     }
 
     @Override
-    public void excluir(String titularSub) {
+    public Optional<ReferenciasStripe> bloquearCobranca(String titularSub) {
         bloquear(titularSub);
         if (assinaturaAtiva(titularSub)) {
             throw new IllegalStateException("Exclusão aguardando cancelamento da assinatura Premium");
         }
-        if (Boolean.TRUE.equals(jdbc.queryForObject("""
-                SELECT EXISTS (
-                    SELECT 1 FROM assinatura WHERE titular_sub = ?
-                    AND (stripe_customer_id IS NOT NULL OR stripe_subscription_id IS NOT NULL)
-                )
-                """, Boolean.class, titularSub))) {
-            throw new IllegalStateException("Exclusão aguardando tratamento da cobrança no Stripe");
-        }
+        return jdbc.query("""
+                SELECT stripe_customer_id, stripe_subscription_id FROM assinatura
+                 WHERE titular_sub = ? AND (stripe_customer_id IS NOT NULL OR stripe_subscription_id IS NOT NULL)
+                """, (rs, linha) -> new ReferenciasStripe(rs.getString("stripe_customer_id"),
+                        rs.getString("stripe_subscription_id")), titularSub).stream().findFirst();
+    }
 
+    @Override
+    public void excluir(String titularSub) {
         jdbc.update("INSERT INTO titular_excluido (chave) VALUES (sha256(convert_to(?, 'UTF8'))) ON CONFLICT DO NOTHING",
                 titularSub);
         jdbc.update("""

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.seniorinsight.billing.application.porta.saida.ExclusaoDadosRepositorio;
+import com.seniorinsight.billing.application.porta.saida.ExcluirCobrancaExterna;
 import com.seniorinsight.billing.application.porta.saida.PublicadorEventos;
 import com.seniorinsight.billing.domain.evento.ExclusaoConcluida;
 import org.springframework.stereotype.Component;
@@ -25,12 +26,15 @@ public class TratarExclusao {
     private final ObjectMapper json;
     private final ExclusaoDadosRepositorio repositorio;
     private final PublicadorEventos eventos;
+    private final ExcluirCobrancaExterna cobrancaExterna;
 
 
-    public TratarExclusao(ObjectMapper json, ExclusaoDadosRepositorio repositorio, PublicadorEventos eventos) {
+    public TratarExclusao(ObjectMapper json, ExclusaoDadosRepositorio repositorio, PublicadorEventos eventos,
+                          ExcluirCobrancaExterna cobrancaExterna) {
         this.json = json;
         this.repositorio = repositorio;
         this.eventos = eventos;
+        this.cobrancaExterna = cobrancaExterna;
 
     }
 
@@ -69,6 +73,7 @@ public class TratarExclusao {
             return;
         }
         if ("FAMILIAR".equals(tipo)) {
+            repositorio.bloquearCobranca(sub).ifPresent(cobrancaExterna::excluir);
             repositorio.excluir(sub);
         }
         eventos.publicar(new ExclusaoConcluida(protocolo, "billing-service"));

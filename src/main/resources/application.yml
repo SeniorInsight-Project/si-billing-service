@@ -56,6 +56,9 @@ management:
         enabled: true
 
 billing:
+  stripe:
+    exclusao-habilitada: ${STRIPE_ERASURE_ENABLED:false}
+    chave: ${STRIPE_SECRET_KEY:}
   outbox:
     relay:
       intervalo: PT1S
