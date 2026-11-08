@@ -1,5 +1,31 @@
 # si-billing-service
 
+## Trial e direito de acesso
+
+O Care chama `POST /internal/familias/{sub}/trial` ao cadastrar o primeiro idoso.
+A rota exige token de serviço com o escopo `billing.trial.write` e claim
+`azp` igual a `BILLING_TRIAL_CLIENTE_CARE` (padrão `care-service`). Repetir
+a chamada preserva o trial original. O gateway expõe a consulta do próprio
+titular em `GET /api/v1/billing/direito`.
+
+O trial termina em 14 dias. Sem assinatura vigente, o acesso Premium se
+encerra após mais três dias de carência. A data do fim do trial e a data do
+fim do acesso são retornadas separadamente. `acessoPremium` controla
+somente funcionalidades do plano. `assinaturaAtiva` continua informando se
+há assinatura Premium a tratar no fluxo de exclusão.
+
+Configure o preço mensal em centavos de real com
+`BILLING_PREMIUM_PRECO_CENTAVOS`. Sem valor configurado, o preço é nulo.
+O job diário roda às 09h no fuso `BILLING_TRIAL_FUSO` (padrão
+`America/Sao_Paulo`). Ajuste o horário com `BILLING_TRIAL_CRON_LEMBRETES`.
+
+A outbox publica `subscription.changed` no início, na transição para
+carência e ao encerrar o acesso. `data.expiraEm` é o limite do direito ao
+Premium usado pelo Insight. A outbox publica `trial.expiring` a três dias
+e a um dia do fim, uma vez por prazo e somente se ainda não houver assinatura
+vigente. Notificações entrega o aviso ao Familiar Administrador e deduplica
+pelo `id` do CloudEvent.
+
 ## Exclusão do titular
 
 A exclusão remove a assinatura e o trial locais e confirma por protocolo. Premium ativo mantém o pedido pendente até o

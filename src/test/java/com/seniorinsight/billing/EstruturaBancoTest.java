@@ -22,7 +22,8 @@ class EstruturaBancoTest {
     @Test
     void flywayAplicaAsMigracoesNoSchemaBilling() {
         assertThat(flyway.info().applied()).extracting(MigrationInfo::getVersion)
-                .contains(MigrationVersion.fromVersion("1"), MigrationVersion.fromVersion("2"));
+                .contains(MigrationVersion.fromVersion("1"), MigrationVersion.fromVersion("2"),
+                        MigrationVersion.fromVersion("3"));
         assertThat(jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'billing'", String.class))
                 .contains("assinatura", "uso_trial", "outbox_evento", "evento_processado", "flyway_schema_history");

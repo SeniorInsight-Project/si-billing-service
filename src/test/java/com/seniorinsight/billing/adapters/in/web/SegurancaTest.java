@@ -2,13 +2,17 @@ package com.seniorinsight.billing.adapters.in.web;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 import com.seniorinsight.billing.TesteIntegracao;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 @TesteIntegracao
@@ -29,6 +33,24 @@ class SegurancaTest {
         // Ainda não há endpoints de negócio: com token válido a requisição passa pela segurança e cai no 404.
         mvc.perform(get("/v1/assinaturas/minha").with(jwt()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void soClienteCareComEscopoPodeIniciarEOAplicativoVeApenasSeuDireito() throws Exception {
+        String sub = UUID.randomUUID().toString();
+        String trial = "/internal/familias/" + sub + "/trial";
+        var escopo = new SimpleGrantedAuthority("SCOPE_billing.trial.write");
+
+        mvc.perform(post(trial).with(jwt().jwt(j -> j.subject(sub))))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(trial).with(jwt().jwt(j -> j.claim("azp", "outro-servico")).authorities(escopo)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(trial).with(jwt().jwt(j -> j.claim("azp", "care-service")).authorities(escopo)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.plano").value("TRIAL"));
+        mvc.perform(get("/v1/direito").with(jwt().jwt(j -> j.subject(sub))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.acessoPremium").value(true));
+        mvc.perform(get("/v1/direito").with(jwt().jwt(j -> j.subject(UUID.randomUUID().toString()))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.plano").value("FREE"));
     }
 
     @Test
