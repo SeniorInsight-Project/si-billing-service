@@ -1,5 +1,16 @@
 # si-billing-service
 
+## Exclusão do titular
+
+O gateway expõe `GET /api/v1/billing/direito`, que devolve `assinaturaAtiva`
+para o titular autenticado. A exclusão remove a assinatura e o trial locais e
+confirma por protocolo. Premium ativo ou referências de cobrança no Stripe
+mantêm o pedido pendente para cancelamento ou reconciliação, respectivamente.
+
+Os eventos `lgpd.erasure.requested` e `lgpd.erasure.completed` seguem o
+contrato do si-contracts. Uma impressão do identificador impede que mensagens
+antigas recriem os dados excluídos.
+
 Serviço de cobrança: trial de 14 dias, assinatura Premium e faturas B2B pelo Stripe (Checkout, Customer Portal e webhooks) e cálculo do direito de acesso, publicado em `subscription.changed`.
 
 Parte do SeniorInsight — ver o Documento de Arquitetura de Software (seção 6) para as convenções.

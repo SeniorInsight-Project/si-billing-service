@@ -3,6 +3,8 @@ package com.seniorinsight.billing;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,8 +20,9 @@ class EstruturaBancoTest {
     JdbcTemplate jdbc;
 
     @Test
-    void flywayAplicaAV1NoSchemaBilling() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+    void flywayAplicaAsMigracoesNoSchemaBilling() {
+        assertThat(flyway.info().applied()).extracting(MigrationInfo::getVersion)
+                .contains(MigrationVersion.fromVersion("1"), MigrationVersion.fromVersion("2"));
         assertThat(jdbc.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'billing'", String.class))
                 .contains("assinatura", "uso_trial", "outbox_evento", "evento_processado", "flyway_schema_history");

@@ -40,6 +40,9 @@ public class MensageriaConfig {
 
         List<Declarable> declaraveis = new ArrayList<>(List.of(eventos, deadLetter, fila, filaDeadLetter,
                 BindingBuilder.bind(filaDeadLetter).to(deadLetter).with(FILA_DEAD_LETTER)));
+        if (!routingKeys.contains("lgpd.erasure.requested")) {
+            declaraveis.add(BindingBuilder.bind(fila).to(eventos).with("lgpd.erasure.requested"));
+        }
         routingKeys.forEach(routingKey -> declaraveis.add(BindingBuilder.bind(fila).to(eventos).with(routingKey)));
         return new Declarables(declaraveis);
     }
