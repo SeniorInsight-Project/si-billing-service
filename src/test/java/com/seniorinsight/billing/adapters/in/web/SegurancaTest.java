@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 @TesteIntegracao
 class SegurancaTest {
@@ -36,6 +37,7 @@ class SegurancaTest {
     }
 
     @Test
+    @Transactional
     void soClienteCareComEscopoPodeIniciarEOAplicativoVeApenasSeuDireito() throws Exception {
         String sub = UUID.randomUUID().toString();
         String trial = "/internal/familias/" + sub + "/trial";
