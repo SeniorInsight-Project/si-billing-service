@@ -2,10 +2,6 @@ package com.seniorinsight.billing.adapters.out.persistencia;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
 import java.util.UUID;
@@ -19,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 @TesteIntegracao
@@ -28,7 +23,6 @@ class ExclusaoIntegracaoTest {
 
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager entidades;
-    @Autowired MockMvc mvc;
     @Autowired TratarExclusao tratador;
     @Autowired ExclusaoDadosRepositorio repositorio;
 
@@ -54,16 +48,12 @@ class ExclusaoIntegracaoTest {
     }
 
     @Test
-    void premiumAtivoBloqueiaExclusaoEAssinaturaContinuaDisponivel() throws Exception {
+    void premiumAtivoBloqueiaExclusaoEAssinaturaContinuaDisponivel() {
         String sub = UUID.randomUUID().toString();
         jdbc.update("INSERT INTO assinatura (titular_sub, plano, status, inicio_em) VALUES (?, 'PREMIUM', 'ATIVA', now())",
                 sub);
 
         assertThat(repositorio.assinaturaAtiva(sub)).isTrue();
-        mvc.perform(get("/v1/direito").with(jwt().jwt(token -> token.subject(sub))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.assinaturaAtiva").value(true));
-        mvc.perform(get("/v1/direito").with(jwt().jwt(token -> token.subject("outro-titular"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.assinaturaAtiva").value(false));
         assertThatThrownBy(() -> repositorio.bloquearCobranca(sub)).hasMessageContaining("aguardando cancelamento");
         assertThat(repositorio.assinaturaAtiva(sub)).isTrue();
     }
@@ -76,13 +66,6 @@ class ExclusaoIntegracaoTest {
     }
 
     private void enviar(UUID protocolo, UUID titular, String tipo, String sub) {
-        UUID mensagem = UUID.randomUUID();
-        String corpo = """
-                {"specversion":"1.0","id":"%s","source":"/report-service","type":"lgpd.erasure.requested",
-                 "time":"2026-11-08T15:30:00Z","datacontenttype":"application/json",
-                 "dataschema":"https://raw.githubusercontent.com/SeniorInsight-Project/si-contracts/main/events/lgpd.erasure.requested.v1.json",
-                 "subject":"%s","data":{"protocolo":"%s","titularId":"%s","tipoTitular":"%s","titularSub":"%s"}}
-                """.formatted(mensagem, protocolo, protocolo, titular, tipo, sub);
-        tratador.tratar(mensagem, corpo);
+        tratador.tratar(new TratarExclusao.Pedido(protocolo, titular, sub, "IDOSO".equals(tipo)));
     }
 }

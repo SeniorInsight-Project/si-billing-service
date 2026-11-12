@@ -1,7 +1,6 @@
 package com.seniorinsight.billing.application.evento;
 
 import com.seniorinsight.billing.application.porta.saida.RegistroEventosProcessados;
-import com.seniorinsight.billing.application.lgpd.TratarExclusao;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,11 +16,9 @@ public class ReceberEventoService {
     private static final Logger log = LoggerFactory.getLogger(ReceberEventoService.class);
 
     private final RegistroEventosProcessados registro;
-    private final TratarExclusao exclusao;
 
-    public ReceberEventoService(RegistroEventosProcessados registro, TratarExclusao exclusao) {
+    public ReceberEventoService(RegistroEventosProcessados registro) {
         this.registro = registro;
-        this.exclusao = exclusao;
     }
 
     /** @return {@code false} se o evento já tinha sido processado (reentrega) e foi ignorado. */
@@ -30,9 +27,6 @@ public class ReceberEventoService {
         if (!registro.registrarSeNovo(evento.id(), evento.tipo())) {
             log.info("Evento {} ({}) já processado, ignorado", evento.id(), evento.tipo());
             return false;
-        }
-        if (TratarExclusao.TIPO.equals(evento.tipo())) {
-            exclusao.tratar(evento.id(), evento.payload());
         }
         log.debug("Evento {} ({}) processado", evento.id(), evento.tipo());
         return true;

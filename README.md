@@ -2,9 +2,7 @@
 
 ## Exclusão do titular
 
-O gateway expõe `GET /api/v1/billing/direito`, que devolve `assinaturaAtiva`
-para o titular autenticado. A exclusão remove a assinatura e o trial locais e
-confirma por protocolo. Premium ativo mantém o pedido pendente até o
+A exclusão remove a assinatura e o trial locais e confirma por protocolo. Premium ativo mantém o pedido pendente até o
 encerramento. Para cobranças no Stripe, configure `STRIPE_ERASURE_ENABLED=true`
 e `STRIPE_SECRET_KEY` após validar a integração em homologação. A exclusão
 aguarda o encerramento de todas as assinaturas e a confirmação do provedor.
