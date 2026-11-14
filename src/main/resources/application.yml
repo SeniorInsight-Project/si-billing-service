@@ -56,6 +56,18 @@ management:
         enabled: true
 
 billing:
+  trial:
+    preco-premium-centavos: "${BILLING_PREMIUM_PRECO_CENTAVOS:}"
+    cliente-care: "${BILLING_TRIAL_CLIENTE_CARE:care-service}"
+    fuso: "${BILLING_TRIAL_FUSO:America/Sao_Paulo}"
+    intervalo-ciclo: "${BILLING_TRIAL_INTERVALO:PT1M}"
+    cron-lembretes: "${BILLING_TRIAL_CRON_LEMBRETES:0 0 9 * * *}"
+  stripe:
+    exclusao-habilitada: ${STRIPE_ERASURE_ENABLED:false}
+    chave: ${STRIPE_SECRET_KEY:}
+  exclusao:
+    tentativas: ${BILLING_EXCLUSAO_TENTATIVAS:5}
+    intervalo: ${BILLING_EXCLUSAO_INTERVALO:PT30S}
   outbox:
     relay:
       intervalo: PT1S
@@ -63,4 +75,14 @@ billing:
       timeout-confirmacao: PT5S
   mensageria:
     # Eventos de si.events que chegam na fila billing.q.
-    routing-keys: user.created
+    routing-keys: user.created,lgpd.erasure.requested
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+billing:
+  stripe:
+    exclusao-habilitada: ${STRIPE_ERASURE_ENABLED}

@@ -17,6 +17,11 @@ class ArquiteturaTest {
     private static final String ADAPTERS_OUT = "com.seniorinsight.billing.adapters.out..";
 
     @ArchTest
+    static final ArchRule adaptersInNaoUsamPortasDeSaida = noClasses()
+            .that().resideInAPackage(ADAPTERS_IN)
+            .should().dependOnClassesThat().resideInAPackage("com.seniorinsight.billing.application.porta.saida..");
+
+    @ArchTest
     static final ArchRule dominioNaoDependeDeSpringNemJpa = noClasses()
             .that().resideInAPackage(DOMAIN)
             .should().dependOnClassesThat()

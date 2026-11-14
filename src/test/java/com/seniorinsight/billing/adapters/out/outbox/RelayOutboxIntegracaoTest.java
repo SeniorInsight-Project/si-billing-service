@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seniorinsight.billing.TesteIntegracao;
 import com.seniorinsight.billing.application.porta.saida.PublicadorEventos;
 import com.seniorinsight.billing.domain.evento.EventoDominio;
+import com.seniorinsight.billing.domain.evento.DireitoAlterado;
+import com.seniorinsight.billing.domain.assinatura.AcessoPlano;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.BindingBuilder;
@@ -53,7 +56,10 @@ class RelayOutboxIntegracaoTest {
                 .with("subscription.changed"));
         UUID assinaturaId = UUID.randomUUID();
 
-        transacao.executeWithoutResult(status -> publicador.publicar(new AssinaturaAlterada(assinaturaId, "ATIVA")));
+        Instant fim = Instant.parse("2026-11-15T12:00:00Z");
+        var direito = new DireitoAlterado(assinaturaId, "sub-familiar", AcessoPlano.TRIAL, true,
+                fim.plus(Duration.ofDays(3)), fim, false);
+        transacao.executeWithoutResult(status -> publicador.publicar(direito));
 
         Message mensagem = rabbitTemplate.receive(fila.getName(), Duration.ofSeconds(15).toMillis());
         assertThat(mensagem).as("mensagem publicada pelo relay").isNotNull();
@@ -61,12 +67,17 @@ class RelayOutboxIntegracaoTest {
         assertThat(propriedades.getReceivedExchange()).isEqualTo("si.events");
         assertThat(propriedades.getReceivedRoutingKey()).isEqualTo("subscription.changed");
         assertThat(propriedades.getType()).isEqualTo("subscription.changed");
-        assertThat(propriedades.getContentType()).isEqualTo(MessageProperties.CONTENT_TYPE_JSON);
+        assertThat(propriedades.getContentType()).isEqualTo("application/cloudevents+json");
         assertThat(propriedades.getAppId()).isEqualTo("billing-service");
-        assertThat(propriedades.<String>getHeader("tipo_agregado")).isEqualTo("assinatura");
+        assertThat(propriedades.<String>getHeader("tipo_agregado")).isEqualTo("trial");
         assertThat(propriedades.<String>getHeader("agregado_id")).isEqualTo(assinaturaId.toString());
-        assertThat(objectMapper.readTree(mensagem.getBody()))
-                .isEqualTo(objectMapper.createObjectNode().put("assinaturaId", assinaturaId.toString()).put("status", "ATIVA"));
+        var envelope = objectMapper.readTree(mensagem.getBody());
+        assertThat(envelope.path("id").asText()).isEqualTo(propriedades.getMessageId());
+        assertThat(envelope.path("type").asText()).isEqualTo(propriedades.getReceivedRoutingKey());
+        assertThat(envelope.path("source").asText()).isEqualTo("/billing-service");
+        assertThat(envelope.path("data").path("familiarSub").asText()).isEqualTo("sub-familiar");
+        assertThat(envelope.path("data").path("ativa").asBoolean()).isTrue();
+        assertThat(envelope.path("data").path("expiraEm").asText()).isEqualTo("2026-11-18T12:00:00Z");
 
         UUID eventoId = UUID.fromString(propriedades.getMessageId());
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {

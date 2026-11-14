@@ -28,7 +28,6 @@ public class ReceberEventoService {
             log.info("Evento {} ({}) já processado, ignorado", evento.id(), evento.tipo());
             return false;
         }
-        // Os casos de uso de cada tipo de evento (ex.: iniciar o trial em user.created) entram nas próximas HUs.
         log.debug("Evento {} ({}) processado", evento.id(), evento.tipo());
         return true;
     }

@@ -1,5 +1,45 @@
 # si-billing-service
 
+## Trial e direito de acesso
+
+O Care chama `POST /internal/familias/{sub}/trial` ao cadastrar o primeiro idoso.
+A rota exige token de serviço com o escopo `billing.trial.write` e claim
+`azp` igual a `BILLING_TRIAL_CLIENTE_CARE` (padrão `care-service`). Repetir
+a chamada preserva o trial original. O gateway expõe a consulta do próprio
+titular em `GET /api/v1/billing/direito`.
+
+O trial termina em 14 dias. Sem assinatura vigente, o acesso Premium se
+encerra após mais três dias de carência. A data do fim do trial e a data do
+fim do acesso são retornadas separadamente. `acessoPremium` controla
+somente funcionalidades do plano. `assinaturaAtiva` continua informando se
+há assinatura Premium a tratar no fluxo de exclusão.
+
+Configure o preço mensal em centavos de real com
+`BILLING_PREMIUM_PRECO_CENTAVOS`. Sem valor configurado, o preço é nulo.
+O job diário roda às 09h no fuso `BILLING_TRIAL_FUSO` (padrão
+`America/Sao_Paulo`). Ajuste o horário com `BILLING_TRIAL_CRON_LEMBRETES`.
+
+A outbox publica `subscription.changed` no início, na transição para
+carência e ao encerrar o acesso. `data.expiraEm` é o limite do direito ao
+Premium usado pelo Insight. A outbox publica `trial.expiring` a três dias
+e a um dia do fim, uma vez por prazo e somente se ainda não houver assinatura
+vigente. Notificações entrega o aviso ao Familiar Administrador e deduplica
+pelo `id` do CloudEvent.
+
+## Exclusão do titular
+
+A exclusão remove a assinatura e o trial locais e confirma por protocolo. Premium ativo mantém o pedido pendente até o
+encerramento. Para cobranças no Stripe, configure `STRIPE_ERASURE_ENABLED=true`
+e `STRIPE_SECRET_KEY` após validar a integração em homologação. No perfil
+`prod`, `STRIPE_ERASURE_ENABLED` é obrigatória e a aplicação não sobe sem
+ela. A exclusão
+aguarda o encerramento de todas as assinaturas e a confirmação do provedor.
+Registros fiscais históricos seguem a política de retenção aplicável.
+
+Os eventos `lgpd.erasure.requested` e `lgpd.erasure.completed` seguem o
+contrato do [si-contracts#19](https://github.com/SeniorInsight-Project/si-contracts/pull/19). Uma impressão do identificador impede que mensagens
+antigas recriem os dados excluídos.
+
 Serviço de cobrança: trial de 14 dias, assinatura Premium e faturas B2B pelo Stripe (Checkout, Customer Portal e webhooks) e cálculo do direito de acesso, publicado em `subscription.changed`.
 
 Parte do SeniorInsight — ver o Documento de Arquitetura de Software (seção 6) para as convenções.
