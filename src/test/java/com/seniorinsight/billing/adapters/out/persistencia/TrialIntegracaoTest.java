@@ -6,6 +6,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import com.seniorinsight.billing.TesteIntegracao;
 import com.seniorinsight.billing.application.trial.DireitoService;
@@ -15,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @TesteIntegracao
 @Transactional
@@ -82,5 +86,33 @@ class TrialIntegracaoTest {
                 SELECT payload->>'diasRestantes' FROM outbox_evento
                  WHERE payload->>'familiarSub' = ? AND tipo_evento = 'trial.expiring'
                 """, String.class, sub);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void duasExecucoesSimultaneasPublicamUmLembrete() throws Exception {
+        String sub = UUID.randomUUID().toString();
+        Instant agora = Instant.now();
+        direitos.iniciar(sub, agora);
+        var partida = new CountDownLatch(1);
+        try (var exec = Executors.newVirtualThreadPerTaskExecutor()) {
+            var primeiro = exec.submit(() -> {
+                partida.await();
+                direitos.lembrar(sub, agora.plus(Duration.ofDays(11)));
+                return null;
+            });
+            var segundo = exec.submit(() -> {
+                partida.await();
+                direitos.lembrar(sub, agora.plus(Duration.ofDays(11)));
+                return null;
+            });
+            partida.countDown();
+            primeiro.get(10, TimeUnit.SECONDS);
+            segundo.get(10, TimeUnit.SECONDS);
+            assertThat(lembretes(sub)).containsExactly("3");
+        } finally {
+            jdbc.update("DELETE FROM outbox_evento WHERE payload->>'familiarSub' = ?", sub);
+            jdbc.update("DELETE FROM uso_trial WHERE titular_sub = ?", sub);
+        }
     }
 }

@@ -17,9 +17,9 @@ public interface TrialRepositorio {
     List<String> mudancasPendentes(Instant agora, Instant fimCarenciaAte, String depoisDe);
     List<String> lembretesPendentes(Instant umInicio, Instant umFim, Instant tresInicio, Instant tresFim,
                                     String depoisDe);
-    void marcarCarencia(UUID id, Instant agora);
-    void marcarFim(UUID id, Instant agora);
-    void marcarLembrete(UUID id, int dias, Instant agora);
+    boolean marcarCarencia(UUID id, Instant agora);
+    boolean marcarFim(UUID id, Instant agora);
+    boolean marcarLembrete(UUID id, int dias, Instant agora);
 
     record Trial(UUID id, Instant inicio, Instant fim, boolean carenciaPublicada, boolean fimPublicado,
                  boolean avisoTresDias, boolean avisoUmDia) {

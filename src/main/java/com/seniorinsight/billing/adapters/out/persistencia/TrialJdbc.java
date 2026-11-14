@@ -90,23 +90,25 @@ class TrialJdbc implements TrialRepositorio {
     }
 
     @Override
-    public void marcarCarencia(UUID id, Instant agora) {
-        jdbc.update("UPDATE uso_trial SET carencia_publicada_em = ? WHERE id = ?", data(agora), id);
+    public boolean marcarCarencia(UUID id, Instant agora) {
+        return jdbc.update("UPDATE uso_trial SET carencia_publicada_em = ? WHERE id = ? AND carencia_publicada_em IS NULL",
+                data(agora), id) == 1;
     }
 
     @Override
-    public void marcarFim(UUID id, Instant agora) {
-        jdbc.update("UPDATE uso_trial SET fim_publicado_em = ? WHERE id = ?", data(agora), id);
+    public boolean marcarFim(UUID id, Instant agora) {
+        return jdbc.update("UPDATE uso_trial SET fim_publicado_em = ? WHERE id = ? AND fim_publicado_em IS NULL",
+                data(agora), id) == 1;
     }
 
     @Override
-    public void marcarLembrete(UUID id, int dias, Instant agora) {
+    public boolean marcarLembrete(UUID id, int dias, Instant agora) {
         String comando = switch (dias) {
-            case 1 -> "UPDATE uso_trial SET aviso_um_dia_em = ? WHERE id = ?";
-            case 3 -> "UPDATE uso_trial SET aviso_tres_dias_em = ? WHERE id = ?";
+            case 1 -> "UPDATE uso_trial SET aviso_um_dia_em = ? WHERE id = ? AND aviso_um_dia_em IS NULL";
+            case 3 -> "UPDATE uso_trial SET aviso_tres_dias_em = ? WHERE id = ? AND aviso_tres_dias_em IS NULL";
             default -> throw new IllegalArgumentException("Prazo de lembrete inválido");
         };
-        jdbc.update(comando, data(agora), id);
+        return jdbc.update(comando, data(agora), id) == 1;
     }
 
     private static OffsetDateTime data(Instant instante) {

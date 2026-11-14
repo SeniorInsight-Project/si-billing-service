@@ -10,8 +10,7 @@ import com.seniorinsight.billing.application.porta.saida.TrialRepositorio;
 import com.seniorinsight.billing.application.porta.saida.TrialRepositorio.Assinatura;
 import com.seniorinsight.billing.application.porta.saida.TrialRepositorio.Trial;
 import com.seniorinsight.billing.domain.assinatura.AcessoPlano;
-import com.seniorinsight.billing.domain.assinatura.Plano;
-import com.seniorinsight.billing.domain.assinatura.StatusAssinatura;
+import com.seniorinsight.billing.domain.assinatura.AcessoAoPremium;
 import com.seniorinsight.billing.domain.evento.DireitoAlterado;
 import com.seniorinsight.billing.domain.evento.TrialPertoDoFim;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class DireitoService {
     private static final Duration TESTE = Duration.ofDays(14);
-    public static final Duration CARENCIA = Duration.ofDays(3);
+    public static final Duration CARENCIA = AcessoAoPremium.CARENCIA;
 
     private final TrialRepositorio trials;
     private final PublicadorEventos eventos;
@@ -80,12 +79,10 @@ public class DireitoService {
         if (!expirou && trial.carenciaPublicada()) {
             return;
         }
-        if (expirou) {
-            trials.marcarFim(trial.id(), agora);
-        } else {
-            trials.marcarCarencia(trial.id(), agora);
+        boolean marcou = expirou ? trials.marcarFim(trial.id(), agora) : trials.marcarCarencia(trial.id(), agora);
+        if (marcou) {
+            publicarDireito(sub, trial, direito(trial, trials.assinatura(sub).orElse(null), agora));
         }
-        publicarDireito(sub, trial, direito(trial, trials.assinatura(sub).orElse(null), agora));
     }
 
     @Transactional
@@ -98,43 +95,23 @@ public class DireitoService {
         }
         long dias = ChronoUnit.DAYS.between(agora.atZone(fuso).toLocalDate(), trial.fim().atZone(fuso).toLocalDate());
         if ((dias == 3 && !trial.avisoTresDias()) || (dias == 1 && !trial.avisoUmDia())) {
-            trials.marcarLembrete(trial.id(), (int) dias, agora);
-            eventos.publicar(new TrialPertoDoFim(trial.id(), sub, trial.fim(), (int) dias));
+            if (trials.marcarLembrete(trial.id(), (int) dias, agora)) {
+                eventos.publicar(new TrialPertoDoFim(trial.id(), sub, trial.fim(), (int) dias));
+            }
         }
     }
 
     private Direito direito(Trial trial, Assinatura assinatura, Instant agora) {
-        Instant fim = trial == null ? null : trial.fim();
-        Instant fimAcessoTrial = fim == null ? null : fim.plus(CARENCIA);
-        boolean assinaturaAtiva = assinatura != null && assinatura.plano() == Plano.PREMIUM
-                && (assinatura.status() == StatusAssinatura.ATIVA || assinatura.status() == StatusAssinatura.INADIMPLENTE);
-
-        if (premiumVigente(assinatura, agora)) {
-            return new Direito(AcessoPlano.PREMIUM, true, assinaturaAtiva, fim, fimAcessoPago(assinatura),
-                    assinatura.status() == StatusAssinatura.INADIMPLENTE, precoCentavos, "BRL");
-        }
-        if (trial != null && !agora.isBefore(trial.inicio()) && agora.isBefore(fimAcessoTrial)) {
-            return new Direito(AcessoPlano.TRIAL, true, assinaturaAtiva, fim, fimAcessoTrial,
-                    !agora.isBefore(fim), precoCentavos, "BRL");
-        }
-        return new Direito(AcessoPlano.FREE, false, assinaturaAtiva, fim, null, false, precoCentavos, "BRL");
+        var acesso = AcessoAoPremium.calcular(trial == null ? null : trial.inicio(), trial == null ? null : trial.fim(),
+                assinatura == null ? null : assinatura.plano(), assinatura == null ? null : assinatura.status(),
+                assinatura == null ? null : assinatura.inicio(), assinatura == null ? null : assinatura.fimPeriodo(), agora);
+        return new Direito(acesso.plano(), acesso.plano() != AcessoPlano.FREE, acesso.assinaturaAtiva(),
+                acesso.fimTrial(), acesso.fimAcesso(), acesso.emCarencia(), precoCentavos, "BRL");
     }
 
     private static boolean premiumVigente(Assinatura assinatura, Instant agora) {
-        if (assinatura == null || assinatura.plano() == Plano.TRIAL || agora.isBefore(assinatura.inicio())) {
-            return false;
-        }
-        Instant fim = fimAcessoPago(assinatura);
-        return switch (assinatura.status()) {
-            case ATIVA -> fim == null || agora.isBefore(fim);
-            case INADIMPLENTE -> fim != null && agora.isBefore(fim);
-            default -> false;
-        };
-    }
-
-    private static Instant fimAcessoPago(Assinatura assinatura) {
-        Instant fim = assinatura.fimPeriodo();
-        return fim != null && assinatura.status() == StatusAssinatura.INADIMPLENTE ? fim.plus(CARENCIA) : fim;
+        return assinatura != null && AcessoAoPremium.premiumVigente(assinatura.plano(), assinatura.status(),
+                assinatura.inicio(), assinatura.fimPeriodo(), agora);
     }
 
     private void publicarDireito(String sub, Trial trial, Direito direito) {
