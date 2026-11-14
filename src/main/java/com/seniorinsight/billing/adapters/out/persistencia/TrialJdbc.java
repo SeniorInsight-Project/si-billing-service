@@ -8,8 +8,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.seniorinsight.billing.application.porta.saida.TrialRepositorio;
+import com.seniorinsight.billing.domain.assinatura.Assinatura;
 import com.seniorinsight.billing.domain.assinatura.Plano;
 import com.seniorinsight.billing.domain.assinatura.StatusAssinatura;
+import com.seniorinsight.billing.domain.assinatura.Trial;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 

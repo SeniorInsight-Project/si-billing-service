@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.seniorinsight.billing.application.porta.saida.TrialRepositorio;
+import com.seniorinsight.billing.domain.assinatura.Trial;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +27,7 @@ public class ProcessarCicloTrial {
     }
 
     public void atualizarCiclos(Instant agora) {
-        processar(cursor -> trials.mudancasPendentes(agora, agora.minus(DireitoService.CARENCIA), cursor),
+        processar(cursor -> trials.mudancasPendentes(agora, agora.minus(Trial.CARENCIA), cursor),
                 sub -> direitos.atualizarCiclo(sub, agora));
     }
 

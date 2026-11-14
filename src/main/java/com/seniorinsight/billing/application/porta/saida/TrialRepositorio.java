@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.seniorinsight.billing.domain.assinatura.Plano;
-import com.seniorinsight.billing.domain.assinatura.StatusAssinatura;
+import com.seniorinsight.billing.domain.assinatura.Assinatura;
+import com.seniorinsight.billing.domain.assinatura.Trial;
 
 public interface TrialRepositorio {
     void bloquear(String sub);
@@ -20,11 +20,4 @@ public interface TrialRepositorio {
     boolean marcarCarencia(UUID id, Instant agora);
     boolean marcarFim(UUID id, Instant agora);
     boolean marcarLembrete(UUID id, int dias, Instant agora);
-
-    record Trial(UUID id, Instant inicio, Instant fim, boolean carenciaPublicada, boolean fimPublicado,
-                 boolean avisoTresDias, boolean avisoUmDia) {
-    }
-
-    record Assinatura(Plano plano, StatusAssinatura status, Instant inicio, Instant fimPeriodo) {
-    }
 }

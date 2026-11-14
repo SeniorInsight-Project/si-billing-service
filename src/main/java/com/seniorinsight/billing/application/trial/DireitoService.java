@@ -1,27 +1,24 @@
 package com.seniorinsight.billing.application.trial;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 import com.seniorinsight.billing.application.porta.saida.PublicadorEventos;
 import com.seniorinsight.billing.application.porta.saida.TrialRepositorio;
-import com.seniorinsight.billing.application.porta.saida.TrialRepositorio.Assinatura;
-import com.seniorinsight.billing.application.porta.saida.TrialRepositorio.Trial;
-import com.seniorinsight.billing.domain.assinatura.AcessoPlano;
 import com.seniorinsight.billing.domain.assinatura.AcessoAoPremium;
+import com.seniorinsight.billing.domain.assinatura.AcessoPlano;
+import com.seniorinsight.billing.domain.assinatura.Assinatura;
+import com.seniorinsight.billing.domain.assinatura.Trial;
 import com.seniorinsight.billing.domain.evento.DireitoAlterado;
 import com.seniorinsight.billing.domain.evento.TrialPertoDoFim;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Orquestra persistência e eventos; as regras do direito ficam em {@code domain.assinatura}. */
 @Service
 public class DireitoService {
-    private static final Duration TESTE = Duration.ofDays(14);
-    public static final Duration CARENCIA = AcessoAoPremium.CARENCIA;
-
     private final TrialRepositorio trials;
     private final PublicadorEventos eventos;
     private final Long precoCentavos;
@@ -52,11 +49,11 @@ public class DireitoService {
 
         Assinatura assinatura = trials.assinatura(sub).orElse(null);
         Trial anterior = trials.buscar(sub).orElse(null);
-        if (anterior != null || premiumVigente(assinatura, agora)) {
+        if (!Trial.podeIniciar(anterior, assinatura, agora)) {
             return direito(anterior, assinatura, agora);
         }
 
-        Trial criado = trials.registrar(sub, agora, agora.plus(TESTE)).orElseThrow();
+        Trial criado = trials.registrar(sub, agora, Trial.fimPara(agora)).orElseThrow();
         Direito direito = direito(criado, assinatura, agora);
         publicarDireito(sub, criado, direito);
         return direito;
@@ -72,14 +69,14 @@ public class DireitoService {
     public void atualizarCiclo(String sub, Instant agora) {
         trials.bloquear(sub);
         Trial trial = trials.buscar(sub).orElse(null);
-        if (trial == null || trial.fimPublicado() || agora.isBefore(trial.fim())) {
+        if (trial == null) {
             return;
         }
-        boolean expirou = !agora.isBefore(trial.fim().plus(CARENCIA));
-        if (!expirou && trial.carenciaPublicada()) {
-            return;
-        }
-        boolean marcou = expirou ? trials.marcarFim(trial.id(), agora) : trials.marcarCarencia(trial.id(), agora);
+        boolean marcou = switch (trial.transicaoEm(agora)) {
+            case NENHUMA -> false;
+            case CARENCIA -> trials.marcarCarencia(trial.id(), agora);
+            case FIM -> trials.marcarFim(trial.id(), agora);
+        };
         if (marcou) {
             publicarDireito(sub, trial, direito(trial, trials.assinatura(sub).orElse(null), agora));
         }
@@ -89,29 +86,19 @@ public class DireitoService {
     public void lembrar(String sub, Instant agora) {
         trials.bloquear(sub);
         Trial trial = trials.buscar(sub).orElse(null);
-        if (trial == null || !agora.isBefore(trial.fim())
-                || premiumVigente(trials.assinatura(sub).orElse(null), agora)) {
+        if (trial == null) {
             return;
         }
-        long dias = ChronoUnit.DAYS.between(agora.atZone(fuso).toLocalDate(), trial.fim().atZone(fuso).toLocalDate());
-        if ((dias == 3 && !trial.avisoTresDias()) || (dias == 1 && !trial.avisoUmDia())) {
-            if (trials.marcarLembrete(trial.id(), (int) dias, agora)) {
-                eventos.publicar(new TrialPertoDoFim(trial.id(), sub, trial.fim(), (int) dias));
-            }
+        var dias = trial.lembreteEm(trials.assinatura(sub).orElse(null), agora, fuso);
+        if (dias.isPresent() && trials.marcarLembrete(trial.id(), dias.getAsInt(), agora)) {
+            eventos.publicar(new TrialPertoDoFim(trial.id(), sub, trial.fim(), dias.getAsInt()));
         }
     }
 
     private Direito direito(Trial trial, Assinatura assinatura, Instant agora) {
-        var acesso = AcessoAoPremium.calcular(trial == null ? null : trial.inicio(), trial == null ? null : trial.fim(),
-                assinatura == null ? null : assinatura.plano(), assinatura == null ? null : assinatura.status(),
-                assinatura == null ? null : assinatura.inicio(), assinatura == null ? null : assinatura.fimPeriodo(), agora);
-        return new Direito(acesso.plano(), acesso.plano() != AcessoPlano.FREE, acesso.assinaturaAtiva(),
+        var acesso = AcessoAoPremium.em(trial, assinatura, agora);
+        return new Direito(acesso.plano(), acesso.acessoPremium(), acesso.assinaturaAtiva(),
                 acesso.fimTrial(), acesso.fimAcesso(), acesso.emCarencia(), precoCentavos, "BRL");
-    }
-
-    private static boolean premiumVigente(Assinatura assinatura, Instant agora) {
-        return assinatura != null && AcessoAoPremium.premiumVigente(assinatura.plano(), assinatura.status(),
-                assinatura.inicio(), assinatura.fimPeriodo(), agora);
     }
 
     private void publicarDireito(String sub, Trial trial, Direito direito) {
