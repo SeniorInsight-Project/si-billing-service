@@ -61,11 +61,14 @@ class RelayOutboxIntegracaoTest {
         assertThat(propriedades.getReceivedExchange()).isEqualTo("si.events");
         assertThat(propriedades.getReceivedRoutingKey()).isEqualTo("subscription.changed");
         assertThat(propriedades.getType()).isEqualTo("subscription.changed");
-        assertThat(propriedades.getContentType()).isEqualTo(MessageProperties.CONTENT_TYPE_JSON);
+        assertThat(propriedades.getContentType()).isEqualTo("application/cloudevents+json");
         assertThat(propriedades.getAppId()).isEqualTo("billing-service");
         assertThat(propriedades.<String>getHeader("tipo_agregado")).isEqualTo("assinatura");
         assertThat(propriedades.<String>getHeader("agregado_id")).isEqualTo(assinaturaId.toString());
-        assertThat(objectMapper.readTree(mensagem.getBody()))
+        var envelope = objectMapper.readTree(mensagem.getBody());
+        assertThat(envelope.path("id").asText()).isEqualTo(propriedades.getMessageId());
+        assertThat(envelope.path("type").asText()).isEqualTo(propriedades.getReceivedRoutingKey());
+        assertThat(envelope.path("data"))
                 .isEqualTo(objectMapper.createObjectNode().put("assinaturaId", assinaturaId.toString()).put("status", "ATIVA"));
 
         UUID eventoId = UUID.fromString(propriedades.getMessageId());
