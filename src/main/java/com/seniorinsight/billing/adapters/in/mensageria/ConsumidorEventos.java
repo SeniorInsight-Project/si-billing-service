@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>O ack só sai depois que a transação do processamento foi confirmada. Reentregas (mesmo {@code message_id}) são
  * confirmadas sem efeito. Mensagem sem {@code message_id} válido ou com falha no processamento recebe nack sem
- * requeue e vai para a dead-letter {@code billing.dlq}.
+ * requeue e vai para a dead-letter {@code billing.q.dlq}.
  */
 @Component
 class ConsumidorEventos {

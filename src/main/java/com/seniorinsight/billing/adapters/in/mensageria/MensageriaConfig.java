@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Topologia de entrada: fila {@code billing.q} ligada à exchange {@code si.events} pelas routing keys de
  * {@code billing.mensageria.routing-keys}. Mensagem rejeitada vai para a exchange {@code billing.dlx} e cai na fila
- * {@code billing.dlq}. Tudo é declarado (de forma idempotente) na conexão.
+ * {@code billing.q.dlq}. Tudo é declarado (de forma idempotente) na conexão.
  */
 @Configuration(proxyBeanMethods = false)
 public class MensageriaConfig {
@@ -27,7 +27,7 @@ public class MensageriaConfig {
     public static final String EXCHANGE_EVENTOS = "si.events";
     public static final String FILA = "billing.q";
     public static final String EXCHANGE_DEAD_LETTER = "billing.dlx";
-    public static final String FILA_DEAD_LETTER = "billing.dlq";
+    public static final String FILA_DEAD_LETTER = "billing.q.dlq";
     public static final String EXCHANGE_ESPERA = "billing.retry";
     public static final String FILA_ESPERA = "billing.q.wait";
     public static final String ROUTING_KEY_EXCLUSAO = "lgpd.erasure.requested";
