@@ -56,6 +56,12 @@ management:
         enabled: true
 
 billing:
+  trial:
+    preco-premium-centavos: "${BILLING_PREMIUM_PRECO_CENTAVOS:}"
+    cliente-care: "${BILLING_TRIAL_CLIENTE_CARE:care-service}"
+    fuso: "${BILLING_TRIAL_FUSO:America/Sao_Paulo}"
+    intervalo-ciclo: "${BILLING_TRIAL_INTERVALO:PT1M}"
+    cron-lembretes: "${BILLING_TRIAL_CRON_LEMBRETES:0 0 9 * * *}"
   stripe:
     exclusao-habilitada: ${STRIPE_ERASURE_ENABLED:false}
     chave: ${STRIPE_SECRET_KEY:}
