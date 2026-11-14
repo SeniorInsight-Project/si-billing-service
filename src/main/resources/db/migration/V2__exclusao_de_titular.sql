@@ -1,6 +1,9 @@
 
 CREATE TABLE exclusao_confirmada (
-    protocolo UUID PRIMARY KEY
+    protocolo UUID PRIMARY KEY,
+    titular_sub TEXT NOT NULL,
+    idoso BOOLEAN NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('PENDENTE', 'CONCLUIDA'))
 );
 
 -- A impressão é usada só para impedir que mensagens antigas restaurem os dados excluídos.

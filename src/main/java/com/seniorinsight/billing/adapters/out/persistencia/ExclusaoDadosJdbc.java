@@ -17,9 +17,15 @@ class ExclusaoDadosJdbc implements ExclusaoDadosRepositorio {
     }
 
     @Override
-    public boolean reservar(UUID protocolo) {
-        return jdbc.update("INSERT INTO exclusao_confirmada (protocolo) VALUES (?) ON CONFLICT DO NOTHING",
-                protocolo) == 1;
+    public EstadoReserva reservar(UUID protocolo, String titularSub, boolean idoso) {
+        jdbc.update("""
+                INSERT INTO exclusao_confirmada (protocolo, titular_sub, idoso, status)
+                VALUES (?, ?, ?, 'PENDENTE')
+                ON CONFLICT (protocolo) DO NOTHING
+                """, protocolo, titularSub, idoso);
+        return "CONCLUIDA".equals(jdbc.queryForObject(
+                "SELECT status FROM exclusao_confirmada WHERE protocolo = ?", String.class, protocolo))
+                ? EstadoReserva.CONCLUIDA : EstadoReserva.PENDENTE;
     }
 
     @Override
@@ -57,6 +63,11 @@ class ExclusaoDadosJdbc implements ExclusaoDadosRepositorio {
                 """, titularSub, titularSub, titularSub, titularSub);
         jdbc.update("DELETE FROM assinatura WHERE titular_sub = ?", titularSub);
         jdbc.update("DELETE FROM uso_trial WHERE titular_sub = ?", titularSub);
+    }
+
+    @Override
+    public void concluir(UUID protocolo) {
+        jdbc.update("UPDATE exclusao_confirmada SET status = 'CONCLUIDA' WHERE protocolo = ?", protocolo);
     }
 
     private void bloquear(String chave) {
