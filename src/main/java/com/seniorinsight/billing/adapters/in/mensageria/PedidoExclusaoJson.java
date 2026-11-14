@@ -73,7 +73,13 @@ class PedidoExclusaoJson {
         throw invalido();
     }
 
-    private static IllegalArgumentException invalido() {
-        return new IllegalArgumentException("Pedido de exclusão inválido");
+    private static PedidoInvalido invalido() {
+        return new PedidoInvalido();
+    }
+
+    static class PedidoInvalido extends IllegalArgumentException {
+        PedidoInvalido() {
+            super("Pedido de exclusão inválido");
+        }
     }
 }

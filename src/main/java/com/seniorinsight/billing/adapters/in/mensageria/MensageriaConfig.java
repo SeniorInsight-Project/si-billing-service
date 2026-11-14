@@ -2,6 +2,7 @@ package com.seniorinsight.billing.adapters.in.mensageria;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.Duration;
 
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Declarable;
@@ -27,23 +28,34 @@ public class MensageriaConfig {
     public static final String FILA = "billing.q";
     public static final String EXCHANGE_DEAD_LETTER = "billing.dlx";
     public static final String FILA_DEAD_LETTER = "billing.dlq";
+    public static final String EXCHANGE_ESPERA = "billing.retry";
+    public static final String FILA_ESPERA = "billing.q.wait";
+    public static final String ROUTING_KEY_EXCLUSAO = "lgpd.erasure.requested";
 
     @Bean
-    Declarables topologiaBilling(@Value("${billing.mensageria.routing-keys}") List<String> routingKeys) {
+    Declarables topologiaBilling(@Value("${billing.mensageria.routing-keys}") List<String> routingKeys,
+                                 @Value("${billing.exclusao.intervalo}") Duration intervalo) {
         TopicExchange eventos = ExchangeBuilder.topicExchange(EXCHANGE_EVENTOS).durable(true).build();
         DirectExchange deadLetter = ExchangeBuilder.directExchange(EXCHANGE_DEAD_LETTER).durable(true).build();
+        DirectExchange espera = ExchangeBuilder.directExchange(EXCHANGE_ESPERA).durable(true).build();
         Queue fila = QueueBuilder.durable(FILA)
                 .deadLetterExchange(EXCHANGE_DEAD_LETTER)
                 .deadLetterRoutingKey(FILA_DEAD_LETTER)
                 .build();
         Queue filaDeadLetter = QueueBuilder.durable(FILA_DEAD_LETTER).build();
+        Queue filaEspera = QueueBuilder.durable(FILA_ESPERA)
+                .ttl(Math.toIntExact(intervalo.toMillis()))
+                .deadLetterExchange(EXCHANGE_EVENTOS)
+                .deadLetterRoutingKey(ROUTING_KEY_EXCLUSAO)
+                .build();
 
         List<Declarable> declaraveis = new ArrayList<>(List.of(eventos, deadLetter, fila, filaDeadLetter,
-                BindingBuilder.bind(filaDeadLetter).to(deadLetter).with(FILA_DEAD_LETTER)));
-        if (!routingKeys.contains("lgpd.erasure.requested")) {
-            declaraveis.add(BindingBuilder.bind(fila).to(eventos).with("lgpd.erasure.requested"));
-        }
+                espera, filaEspera, BindingBuilder.bind(filaDeadLetter).to(deadLetter).with(FILA_DEAD_LETTER),
+                BindingBuilder.bind(filaEspera).to(espera).with(FILA_ESPERA)));
         routingKeys.forEach(routingKey -> declaraveis.add(BindingBuilder.bind(fila).to(eventos).with(routingKey)));
+        if (!routingKeys.contains(ROUTING_KEY_EXCLUSAO)) {
+            declaraveis.add(BindingBuilder.bind(fila).to(eventos).with(ROUTING_KEY_EXCLUSAO));
+        }
         return new Declarables(declaraveis);
     }
 }
