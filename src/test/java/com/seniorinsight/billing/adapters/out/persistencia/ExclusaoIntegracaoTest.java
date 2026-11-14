@@ -3,12 +3,10 @@ package com.seniorinsight.billing.adapters.out.persistencia;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-
 import java.util.UUID;
 
 import com.seniorinsight.billing.TesteIntegracao;
 import com.seniorinsight.billing.application.lgpd.TratarExclusao;
-
 import com.seniorinsight.billing.application.porta.saida.ExclusaoDadosRepositorio;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
@@ -56,6 +54,37 @@ class ExclusaoIntegracaoTest {
         assertThat(repositorio.assinaturaAtiva(sub)).isTrue();
         assertThatThrownBy(() -> repositorio.bloquearCobranca(sub)).hasMessageContaining("aguardando cancelamento");
         assertThat(repositorio.assinaturaAtiva(sub)).isTrue();
+    }
+
+    @Test
+    void idosoSoConfirmaESemApagarDadosLocais() {
+        UUID titular = UUID.randomUUID();
+        UUID protocolo = UUID.randomUUID();
+        String sub = titular.toString();
+        jdbc.update("INSERT INTO assinatura (titular_sub, plano, status, inicio_em) VALUES (?, 'TRIAL', 'EXPIRADA', now())",
+                sub);
+        jdbc.update("INSERT INTO uso_trial (titular_sub, iniciado_em, expira_em) VALUES (?, now(), now() + interval '1 day')",
+                sub);
+
+        enviar(protocolo, titular, "IDOSO", sub);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM assinatura WHERE titular_sub = ?", Integer.class, sub)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM uso_trial WHERE titular_sub = ?", Integer.class, sub)).isEqualTo(1);
+        confirmar(protocolo);
+    }
+
+    @Test
+    void stripeDesligadoComReferenciasMantemDadosParaNovaTentativa() {
+        String sub = UUID.randomUUID().toString();
+        jdbc.update("""
+                INSERT INTO assinatura (titular_sub, plano, status, inicio_em, stripe_customer_id, stripe_subscription_id)
+                VALUES (?, 'TRIAL', 'EXPIRADA', now(), 'cus_teste', 'sub_teste')
+                """, sub);
+
+        assertThatThrownBy(() -> tratador.tratar(new TratarExclusao.Pedido(
+                UUID.randomUUID(), UUID.randomUUID(), sub, false)))
+                .hasMessageContaining("Stripe ainda não habilitada");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM assinatura WHERE titular_sub = ?", Integer.class, sub)).isEqualTo(1);
     }
     private void confirmar(UUID protocolo) {
         entidades.flush();

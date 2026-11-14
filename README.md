@@ -4,12 +4,14 @@
 
 A exclusão remove a assinatura e o trial locais e confirma por protocolo. Premium ativo mantém o pedido pendente até o
 encerramento. Para cobranças no Stripe, configure `STRIPE_ERASURE_ENABLED=true`
-e `STRIPE_SECRET_KEY` após validar a integração em homologação. A exclusão
+e `STRIPE_SECRET_KEY` após validar a integração em homologação. No perfil
+`prod`, `STRIPE_ERASURE_ENABLED` é obrigatória e a aplicação não sobe sem
+ela. A exclusão
 aguarda o encerramento de todas as assinaturas e a confirmação do provedor.
 Registros fiscais históricos seguem a política de retenção aplicável.
 
 Os eventos `lgpd.erasure.requested` e `lgpd.erasure.completed` seguem o
-contrato do si-contracts. Uma impressão do identificador impede que mensagens
+contrato do [si-contracts#19](https://github.com/SeniorInsight-Project/si-contracts/pull/19). Uma impressão do identificador impede que mensagens
 antigas recriem os dados excluídos.
 
 Serviço de cobrança: trial de 14 dias, assinatura Premium e faturas B2B pelo Stripe (Checkout, Customer Portal e webhooks) e cálculo do direito de acesso, publicado em `subscription.changed`.
